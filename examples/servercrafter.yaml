@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../schemas/project.schema.json
+version: 1
+templatesDir: templates
+
+# Credentials only say where to read secrets from: an environment variable or a file.
+# They are read when a source first needs them, so a build only requires the secrets it uses.
+credentials:
+  gitlab:
+    type: header
+    name: PRIVATE-TOKEN          # JOB-TOKEN with ${CI_JOB_TOKEN} in GitLab CI
+    value: { env: GITLAB_TOKEN }
+  nexus:
+    type: basic
+    username: { env: NEXUS_USERNAME }
+    password: { file: /run/secrets/nexus-password }
+  maps-ssh:
+    type: ssh
+    privateKey: { file: ~/.ssh/id_ed25519 }
+    passphrase: { env: MAPS_KEY_PASSPHRASE }
+
+sources:
+  # Jars committed next to the templates
+  static:
+    type: local
+    directory: static
+  # Locally built jars, used by the *-dev templates
+  dev:
+    type: local
+    directory: static/dev
+  nexus:
+    type: nexus
+    baseUrl: https://nexus.example.com
+    repository: maven-releases
+    credentials: nexus
+  gitlab:
+    type: gitlab
+    baseUrl: https://gitlab.example.com
+    group: minecraft
+    credentials: gitlab
+  maps:
+    type: git
+    repository: git@gitlab.example.com:minecraft/maps.git
+    ref: main
+    credentials: maps-ssh

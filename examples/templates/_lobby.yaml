@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../../schemas/template.schema.json
+# Partial: the lobby content, shared by the lobby and lobby-dev templates
+version: 1
+parents: [paper-common]
+plugins:
+  - jarId: chunky
+    name: Chunky.jar
+    download: { type: modrinth, project: chunky, loaders: [paper] }
+  # A private plugin from Nexus, only installed when WITH_CORE=true
+  - jarId: core
+    name: core.jar
+    requiredEnv: WITH_CORE
+    download: { type: maven, source: nexus, groupId: com.example, artifactId: core, version: latest-release }
+files:
+  - files/lobby
+patches:
+  - file: server.properties
+    fields:
+      - { field: motd, value: "${MOTD:-Welcome to the lobby}" }

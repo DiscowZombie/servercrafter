@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=../../schemas/template.schema.json
+version: 1
+id: lobby
+# Resolves to _lobby.yaml: partials take precedence over the template of the same name
+parents: [lobby]

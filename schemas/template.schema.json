@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:servercrafter:schema:template:1",
+  "title": "servercrafter template",
+  "description": "A template carrying an id can be built; one without (conventionally _name.yaml) is a partial used as a parent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "const": 1 },
+    "id": { "$ref": "#/$defs/name" },
+    "parents": {
+      "description": "Applied in order, depth first, before this template. A name resolves to _name.yaml, then name.yaml",
+      "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/name" }
+    },
+    "server": {
+      "allOf": [{ "$ref": "#/$defs/location" }],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[^/\\\\]+\\.jar$", "default": "server.jar" },
+        "destination": { "$ref": "#/$defs/relativePath" }
+      },
+      "unevaluatedProperties": false
+    },
+    "plugins": {
+      "description": "Merged with the parents by jarId: a later entry replaces an earlier one, remove: true drops it",
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object", "additionalProperties": false, "required": ["jarId", "remove"],
+            "properties": { "jarId": { "$ref": "#/$defs/jarId" }, "remove": { "const": true } }
+          },
+          {
+            "type": "object",
+            "allOf": [{ "$ref": "#/$defs/location" }],
+            "required": ["jarId", "name"],
+            "properties": {
+              "jarId": { "$ref": "#/$defs/jarId" },
+              "name": { "type": "string", "pattern": "^[^/\\\\]+\\.jar$" },
+              "destination": { "$ref": "#/$defs/relativePath", "default": "plugins" }
+            },
+            "unevaluatedProperties": false
+          }
+        ]
+      }
+    },
+    "worlds": {
+      "description": "Merged with the parents by name. An existing world is kept unless overwrite is set",
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object", "additionalProperties": false, "required": ["name", "remove"],
+            "properties": { "name": { "type": "string" }, "remove": { "const": true } }
+          },
+          {
+            "type": "object",
+            "allOf": [{ "$ref": "#/$defs/location" }],
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string", "pattern": "^[^/\\\\]+$" },
+              "destination": { "$ref": "#/$defs/relativePath" },
+              "extract": { "enum": ["zip"] },
+              "stripComponents": { "type": "integer", "minimum": 0 },
+              "overwrite": { "type": "boolean", "default": false }
+            },
+            "unevaluatedProperties": false
+          }
+        ]
+      }
+    },
+    "files": {
+      "description": "Directories, relative to the project, copied over the server in order",
+      "type": "array", "items": { "type": "string" }
+    },
+    "patches": { "description": "Applied at build time, after the overlays", "type": "array", "items": { "$ref": "#/$defs/patch" } },
+    "runtimePatches": { "description": "Applied by servercrafter bootstrap when the server starts", "type": "array", "items": { "$ref": "#/$defs/patch" } }
+  },
+  "$defs": {
+    "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$" },
+    "jarId": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]*$" },
+    "relativePath": { "type": "string", "pattern": "^(?!/)(?!\\.\\.(/|$))(?!.*/\\.\\.(/|$)).+$" },
+    "sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "location": {
+      "description": "Exactly one of download, url or source + path",
+      "type": "object",
+      "properties": {
+        "download": { "$ref": "#/$defs/download" },
+        "url": { "type": "string", "pattern": "^https?://[^/?#@]+(/.*)?$" },
+        "source": { "type": "string" },
+        "path": { "$ref": "#/$defs/relativePath" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "requiredEnv": { "type": "string", "description": "Only installed when this environment variable is true or 1" }
+      },
+      "oneOf": [
+        { "required": ["download"], "not": { "anyOf": [{ "required": ["url"] }, { "required": ["source"] }, { "required": ["path"] }] } },
+        { "required": ["url"], "not": { "anyOf": [{ "required": ["download"] }, { "required": ["source"] }, { "required": ["path"] }] } },
+        { "required": ["source", "path"], "not": { "anyOf": [{ "required": ["download"] }, { "required": ["url"] }] } }
+      ]
+    },
+    "download": {
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["type", "groupId", "artifactId", "version"],
+          "properties": {
+            "type": { "const": "maven" },
+            "source": { "type": "string", "description": "A nexus, gitlab, http or s3 source" },
+            "repository": { "type": "string", "description": "Maven repository URL without a source, Nexus repository name with a nexus source" },
+            "credentials": { "type": "string", "description": "With a repository URL only" },
+            "groupId": { "type": "string" },
+            "artifactId": { "type": "string" },
+            "version": { "type": "string", "examples": ["1.2.0", "1.3.0-SNAPSHOT", "latest", "latest-release", "latest-snapshot"] },
+            "classifier": { "type": "string" },
+            "extension": { "type": "string", "default": "jar" },
+            "project": { "type": "string", "description": "GitLab project overriding the source one" },
+            "group": { "type": "string", "description": "GitLab group overriding the source one" }
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["type", "project"],
+          "properties": {
+            "type": { "const": "papermc" },
+            "project": { "enum": ["paper", "folia", "velocity", "waterfall"] },
+            "version": { "type": "string", "default": "latest", "examples": ["1.21.4", "latest"] },
+            "build": { "type": "integer", "minimum": 1 },
+            "channel": { "enum": ["stable", "beta", "alpha"], "default": "stable" }
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["type", "project"],
+          "properties": {
+            "type": { "const": "modrinth" },
+            "project": { "type": "string", "description": "Project ID or slug" },
+            "version": { "type": "string", "default": "latest", "examples": ["latest", "latest-published", "1.5.66"] },
+            "loaders": { "type": "array", "items": { "type": "string" }, "examples": [["paper"], ["velocity"]] },
+            "gameVersions": { "type": "array", "items": { "type": "string" } },
+            "asset": { "type": "string", "description": "Regular expression the file name must fully match" }
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["type", "repository", "asset"],
+          "properties": {
+            "type": { "const": "github" },
+            "repository": { "type": "string", "pattern": "^[^/]+/[^/]+$" },
+            "version": { "type": "string", "default": "latest", "examples": ["latest", "latest-published", "v1.2.0"] },
+            "asset": { "type": "string", "description": "Regular expression the asset name must fully match" },
+            "credentials": { "type": "string" }
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["type", "platform"],
+          "properties": {
+            "type": { "const": "luckperms" },
+            "platform": { "type": "string", "examples": ["bukkit", "velocity", "bungee", "fabric", "neoforge"] },
+            "version": { "const": "latest" }
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["type", "source", "package", "version", "file"],
+          "properties": {
+            "type": { "const": "gitlab-generic" },
+            "source": { "type": "string" },
+            "project": { "type": "string" },
+            "package": { "type": "string" },
+            "version": { "type": "string" },
+            "file": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "patch": {
+      "type": "object", "additionalProperties": false, "required": ["file", "fields"],
+      "properties": {
+        "file": { "type": "string", "pattern": "\\.(properties|ya?ml|json)$" },
+        "fields": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object", "additionalProperties": false, "required": ["field", "value"],
+            "properties": {
+              "field": { "type": "string", "description": "Dotted path; numeric segments index lists" },
+              "value": { "type": ["string", "number", "boolean"], "description": "Strings may reference ${VAR} or ${VAR:-default}" },
+              "type": { "enum": ["string", "int", "float", "bool"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

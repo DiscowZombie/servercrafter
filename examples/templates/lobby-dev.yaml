@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=../../schemas/template.schema.json
+# The lobby with a locally built Chunky jar: same jarId, so it replaces the Modrinth one
+version: 1
+id: lobby-dev
+parents: [lobby]
+plugins:
+  - { jarId: chunky, name: Chunky.jar, source: dev, path: Chunky.jar }
+  - { jarId: viaversion, remove: true }

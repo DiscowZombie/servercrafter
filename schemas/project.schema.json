@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:servercrafter:schema:project:1",
+  "title": "servercrafter project",
+  "description": "servercrafter.yaml: where templates live, the named sources artifacts come from and the credentials they use",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "const": 1 },
+    "templatesDir": { "type": "string", "default": "templates", "description": "Directory of the templates, relative to this file" },
+    "credentials": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/name" },
+      "additionalProperties": { "$ref": "#/$defs/credential" }
+    },
+    "sources": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/name" },
+      "additionalProperties": { "$ref": "#/$defs/source" }
+    }
+  },
+  "$defs": {
+    "name": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]*$" },
+    "value": {
+      "description": "Where a secret is read from, never the secret itself",
+      "oneOf": [
+        { "type": "object", "additionalProperties": false, "required": ["env"], "properties": { "env": { "type": "string", "minLength": 1 } } },
+        { "type": "object", "additionalProperties": false, "required": ["file"], "properties": { "file": { "type": "string", "minLength": 1, "description": "Relative to the project, ~ expands to the home directory" } } }
+      ]
+    },
+    "url": { "type": "string", "pattern": "^https?://[^/?#@]+(/.*)?$" },
+    "credential": {
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false, "required": ["type", "username", "password"],
+          "properties": {
+            "type": { "const": "basic" },
+            "username": {
+              "oneOf": [
+                { "$ref": "#/$defs/value" },
+                { "type": "object", "additionalProperties": false, "required": ["value"], "properties": { "value": { "type": "string", "minLength": 1, "description": "The username itself: it is not a secret" } } }
+              ]
+            },
+            "password": { "$ref": "#/$defs/value" }
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["type", "name", "value"],
+          "properties": {
+            "type": { "const": "header" },
+            "name": { "type": "string", "examples": ["PRIVATE-TOKEN", "JOB-TOKEN", "Deploy-Token", "Authorization"] },
+            "value": { "$ref": "#/$defs/value" }
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["type", "token"],
+          "properties": { "type": { "const": "bearer" }, "token": { "$ref": "#/$defs/value" } }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["type", "privateKey"],
+          "properties": {
+            "type": { "const": "ssh" },
+            "user": { "type": "string", "default": "git" },
+            "privateKey": { "$ref": "#/$defs/value" },
+            "passphrase": { "$ref": "#/$defs/value" }
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["type", "accessKey", "secretKey", "region"],
+          "properties": {
+            "type": { "const": "s3" },
+            "accessKey": { "$ref": "#/$defs/value" },
+            "secretKey": { "$ref": "#/$defs/value" },
+            "region": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "source": {
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false, "required": ["type", "directory"],
+          "properties": { "type": { "const": "local" }, "directory": { "type": "string", "description": "Relative to the project" } }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["type", "baseUrl"],
+          "properties": {
+            "type": { "enum": ["http", "s3"] },
+            "baseUrl": { "$ref": "#/$defs/url" },
+            "credentials": { "type": "string" }
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["type", "baseUrl"],
+          "properties": {
+            "type": { "const": "nexus" },
+            "baseUrl": { "$ref": "#/$defs/url" },
+            "repository": { "type": "string", "description": "Default repository" },
+            "credentials": { "type": "string" }
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["type", "baseUrl"],
+          "properties": {
+            "type": { "const": "gitlab" },
+            "baseUrl": { "$ref": "#/$defs/url" },
+            "project": { "type": "string", "description": "Default project, ID or full path" },
+            "group": { "type": "string", "description": "Default group" },
+            "credentials": { "type": "string" }
+          },
+          "not": { "required": ["project", "group"] }
+        },
+        {
+          "type": "object", "additionalProperties": false, "required": ["type", "repository"],
+          "properties": {
+            "type": { "const": "git" },
+            "repository": { "type": "string" },
+            "ref": { "type": "string", "description": "Branch or tag, the remote HEAD when empty" },
+            "credentials": { "type": "string" }
+          }
+        }
+      ]
+    }
+  }
+}

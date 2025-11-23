@@ -1,0 +1,5 @@
+settings:
+  bungeecord: false
+world-settings:
+  default:
+    view-distance: 6

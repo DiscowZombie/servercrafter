@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=../../schemas/template.schema.json
+version: 1
+id: proxy
+server:
+  download: { type: papermc, project: velocity }
+plugins:
+  - jarId: luckperms
+    name: LuckPerms.jar
+    download: { type: luckperms, platform: velocity }

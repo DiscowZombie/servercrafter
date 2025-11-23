@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../schemas/template.schema.json
+# Partial (no id): what every Paper server of the network shares
+version: 1
+server:
+  download: { type: papermc, project: paper, version: "1.21.4" }
+plugins:
+  - jarId: luckperms
+    name: LuckPerms.jar
+    download: { type: luckperms, platform: bukkit }
+  - jarId: viaversion
+    name: ViaVersion.jar
+    download:
+      type: github
+      repository: ViaVersion/ViaVersion
+      asset: 'ViaVersion-.*\.jar'
+files:
+  - files/common
+patches:
+  - file: server.properties
+    fields:
+      - { field: online-mode, value: false }
+      - { field: enforce-secure-profile, value: false }
+runtimePatches:
+  # Secrets never enter the build: they are injected when the container starts
+  - file: config/paper-global.yml
+    fields:
+      - { field: proxies.velocity.enabled, value: true }
+      - { field: proxies.velocity.secret, value: "${CFG_VELOCITY_SECRET}" }
+  - file: server.properties
+    fields:
+      - { field: max-players, value: "${CFG_MAX_PLAYERS:-100}", type: int }
