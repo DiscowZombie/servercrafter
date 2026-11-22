@@ -17,7 +17,7 @@ import (
 	"github.com/discowzombie/servercrafter/internal/template"
 	"github.com/go-git/go-git/v6"
 	"github.com/go-git/go-git/v6/plumbing"
-	"github.com/go-git/go-git/v6/plumbing/transport"
+	"github.com/go-git/go-git/v6/plumbing/client"
 	githttp "github.com/go-git/go-git/v6/plumbing/transport/http"
 	"github.com/go-git/go-git/v6/plumbing/transport/ssh"
 	"github.com/sirupsen/logrus"
@@ -126,7 +126,7 @@ type gitSource struct {
 	log        logrus.FieldLogger
 	repository string
 	ref        string
-	auth       transport.AuthMethod
+	auth       []client.Option
 
 	once   sync.Once
 	dir    string
@@ -182,7 +182,7 @@ func (g *gitSource) clone(ctx context.Context) error {
 	for _, ref := range refs {
 		repo, err = git.PlainCloneContext(ctx, dir, &git.CloneOptions{
 			URL:           g.repository,
-			Auth:          g.auth,
+			ClientOptions: g.auth,
 			ReferenceName: ref,
 			SingleBranch:  ref != "",
 			Depth:         1,
@@ -213,7 +213,7 @@ func (g *gitSource) close() error {
 	return os.RemoveAll(g.dir)
 }
 
-func (r *Resolver) gitAuth(name string) (transport.AuthMethod, error) {
+func (r *Resolver) gitAuth(name string) ([]client.Option, error) {
 	if name == "" {
 		return nil, nil
 	}
@@ -238,7 +238,7 @@ func (r *Resolver) gitAuth(name string) (transport.AuthMethod, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &githttp.BasicAuth{Username: user, Password: password}, nil
+		return []client.Option{client.WithHTTPAuth(&githttp.BasicAuth{Username: user, Password: password})}, nil
 	case project.CredentialSSH:
 		key, err := read("privateKey", cred.PrivateKey)
 		if err != nil {
@@ -258,7 +258,7 @@ func (r *Resolver) gitAuth(name string) (transport.AuthMethod, error) {
 		if err != nil {
 			return nil, fmt.Errorf("credential %q: %w", name, err)
 		}
-		return auth, nil
+		return []client.Option{client.WithSSHAuth(auth)}, nil
 	}
 	return nil, fmt.Errorf("credential %q: a %s credential cannot authenticate git", name, cred.Type)
 }
